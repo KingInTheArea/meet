@@ -1,43 +1,50 @@
 // app/api/transcribe/route.ts
+
 import { NextResponse } from "next/server";
 import { DeepgramClient } from "@deepgram/sdk";
-import fs from "fs";
-import path from "path";
 
-export async function GET() {
+export async function POST(req: Request) {
   try {
-    // 1. Locate the file in your project's public folder
-    const filePath = path.join(process.cwd(), "public", "sample.mp3");
+    const formData = await req.formData();
 
-    // Check if the file actually exists to avoid unexpected errors
-    if (!fs.existsSync(filePath)) {
+    const file = formData.get("audio") as File;
+
+    if (!file) {
       return NextResponse.json(
-        { error: `File not found at: ${filePath}. Please make sure 'sample.mp3' is in your public folder.` },
-        { status: 404 }
+        { error: "No file uploaded" },
+        { status: 400 }
       );
     }
 
-    // 2. Read the file into a Node.js Buffer
-    const buffer = fs.readFileSync(filePath);
+    // console.log("Uploaded file:", file.name);
 
-    // 3. Initialize Deepgram
-    const deepgram = new DeepgramClient({ apiKey: process.env.DEEPGRAM_API_KEY });
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // 4. Send the local file buffer to Deepgram
+    const deepgram = new DeepgramClient({
+      apiKey: process.env.DEEPGRAM_API_KEY,
+    });
+
     const result = await deepgram.listen.v1.media.transcribeFile(
       buffer,
       {
-        model: "nova-2",
+        model: "nova-3",
+        language: "multi",
+        // detect_language: true,
         smart_format: true,
-      },
-    //   {
-    //     mimetype: "audio/mp3", // Change this to match your file extension (e.g., audio/wav)
-    //   }
+      }
     );
+    // console.log(JSON.stringify(result, null, 2));
 
-    return NextResponse.json(result);
+return NextResponse.json(result);
+
+    
   } catch (err: any) {
     console.error("Deepgram Backend Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+
+    return NextResponse.json(
+      { error: err.message },
+      { status: 500 }
+    );
   }
 }
